@@ -20,9 +20,13 @@ inputs:
     required: false
     default: '0.0.0'
   floating-tag:
-    description: 'Enable floating major version tag (e.g., v5 points to latest v5.x.x)'
+    description: 'Floating tags mode: "true" (default) updates major tag (e.g., v5). Set to "minor" to also update minor tag (e.g., v5.2). Set to "false" to disable.'
     required: false
     default: 'true'
+  create-release:
+    description: 'Create or update a GitHub Release for the new tag with generated release notes'
+    required: false
+    default: 'false'
 
 outputs:
   new-tag:
@@ -31,6 +35,10 @@ outputs:
     description: 'The type of version bump (major, minor, patch, or none)'
   floating-tag:
     description: 'The floating major version tag that was updated (e.g., v5)'
+  floating-minor-tag:
+    description: 'The floating minor version tag that was updated (e.g., v5.2)'
+  release-url:
+    description: 'The GitHub Release URL that was created/updated (only when create-release is enabled)'
 
 runs:
   using: 'node20'

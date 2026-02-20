@@ -5,10 +5,29 @@ import * as semver from 'semver';
 const CONVENTIONAL_COMMIT_REGEX = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+$/;
 
 type BumpType = 'major' | 'minor' | 'patch' | 'none';
+type FloatingTagMode = 'off' | 'major' | 'major+minor';
 
 interface CommitInfo {
   message: string;
   sha: string;
+}
+
+function parseFloatingTagMode(input: string): FloatingTagMode {
+  const raw = (input || '').trim().toLowerCase();
+
+  if (raw === 'false' || raw === 'off' || raw === '0' || raw === 'no') return 'off';
+  if (raw === 'minor' || raw === 'major+minor' || raw === 'major,minor' || raw === 'majorminor') return 'major+minor';
+
+  // Back-compat: default/true => major-only
+  return 'major';
+}
+
+function parseBooleanInput(input: string, defaultValue: boolean): boolean {
+  const raw = (input || '').trim().toLowerCase();
+  if (raw === '') return defaultValue;
+  if (raw === 'true' || raw === '1' || raw === 'yes' || raw === 'on') return true;
+  if (raw === 'false' || raw === '0' || raw === 'no' || raw === 'off') return false;
+  return defaultValue;
 }
 
 async function run(): Promise<void> {
@@ -16,7 +35,8 @@ async function run(): Promise<void> {
     const token = core.getInput('github-token', { required: true });
     const tagPrefix = core.getInput('tag-prefix') || 'v';
     const initialVersion = core.getInput('initial-version') || '0.0.0';
-    const floatingTag = core.getInput('floating-tag') !== 'false';
+    const floatingTagMode = parseFloatingTagMode(core.getInput('floating-tag'));
+    const createRelease = parseBooleanInput(core.getInput('create-release'), false);
 
     const octokit = github.getOctokit(token);
     const context = github.context;
@@ -27,7 +47,7 @@ async function run(): Promise<void> {
     if (context.eventName === 'pull_request') {
       await handlePullRequest(context);
     } else if (context.eventName === 'push') {
-      await handlePush(octokit, context, tagPrefix, initialVersion, floatingTag);
+      await handlePush(octokit, context, tagPrefix, initialVersion, floatingTagMode, createRelease);
     } else {
       core.warning(`Unsupported event: ${context.eventName}. Skipping.`);
     }
@@ -73,7 +93,8 @@ async function handlePush(
   context: typeof github.context,
   tagPrefix: string,
   initialVersion: string,
-  floatingTag: boolean
+  floatingTagMode: FloatingTagMode,
+  createRelease: boolean
 ): Promise<void> {
   const { owner, repo } = context.repo;
   const defaultBranch = context.payload.repository?.default_branch || 'main';
@@ -128,7 +149,22 @@ async function handlePush(
   core.setOutput('bump-type', bumpType);
   core.info(`Successfully created tag ${newTag}`);
 
-  if (floatingTag) {
+  if (createRelease) {
+    const releaseUrl = await upsertReleaseWithGeneratedNotes(
+      octokit,
+      owner,
+      repo,
+      newTag,
+      latestTag,
+      defaultBranch
+    );
+    if (releaseUrl) {
+      core.setOutput('release-url', releaseUrl);
+      core.info(`Created/updated GitHub Release: ${releaseUrl}`);
+    }
+  }
+
+  if (floatingTagMode !== 'off') {
     const majorVersion = semver.major(newVersion);
     if (majorVersion === 0) {
       core.info('Skipping floating tag creation for v0.x.x versions');
@@ -137,7 +173,82 @@ async function handlePush(
       await updateFloatingTag(octokit, owner, repo, floatingTagName, context.sha);
       core.setOutput('floating-tag', floatingTagName);
       core.info(`Updated floating tag ${floatingTagName} -> ${newTag}`);
+
+      if (floatingTagMode === 'major+minor') {
+        const minorVersion = semver.minor(newVersion);
+        const floatingMinorTagName = `${tagPrefix}${majorVersion}.${minorVersion}`;
+        await updateFloatingTag(octokit, owner, repo, floatingMinorTagName, context.sha);
+        core.setOutput('floating-minor-tag', floatingMinorTagName);
+        core.info(`Updated floating minor tag ${floatingMinorTagName} -> ${newTag}`);
+      }
     }
+  }
+}
+
+async function upsertReleaseWithGeneratedNotes(
+  octokit: ReturnType<typeof github.getOctokit>,
+  owner: string,
+  repo: string,
+  tag: string,
+  previousTag: string | null,
+  targetCommitish: string
+): Promise<string | null> {
+  let releaseName: string | undefined;
+  let releaseBody: string | undefined;
+
+  try {
+    const { data } = await octokit.request('POST /repos/{owner}/{repo}/releases/generate-notes', {
+      owner,
+      repo,
+      tag_name: tag,
+      previous_tag_name: previousTag || undefined,
+      target_commitish: targetCommitish,
+    });
+
+    releaseName = data.name || tag;
+    releaseBody = data.body || undefined;
+  } catch (error) {
+    core.warning(`Failed to generate release notes via API: ${error}`);
+  }
+
+  try {
+    const { data: release } = await octokit.rest.repos.createRelease({
+      owner,
+      repo,
+      tag_name: tag,
+      name: releaseName || tag,
+      body: releaseBody,
+      draft: false,
+      prerelease: false,
+      generate_release_notes: releaseBody ? false : true,
+    });
+
+    return release.html_url || null;
+  } catch (error) {
+    core.info(`Release already exists or create failed; attempting update. (${error})`);
+  }
+
+  try {
+    const { data: existing } = await octokit.rest.repos.getReleaseByTag({
+      owner,
+      repo,
+      tag,
+    });
+
+    const { data: updated } = await octokit.rest.repos.updateRelease({
+      owner,
+      repo,
+      release_id: existing.id,
+      name: releaseName || existing.name || tag,
+      body: releaseBody || existing.body || undefined,
+      draft: existing.draft,
+      prerelease: existing.prerelease,
+    });
+
+    return updated.html_url || existing.html_url || null;
+  } catch (error) {
+    core.warning(`Failed to update existing release: ${error}`);
+    return null;
   }
 }
 
