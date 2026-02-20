@@ -32772,10 +32772,15 @@ async function handlePush(octokit, context, tagPrefix, initialVersion, floatingT
     core.info(`Successfully created tag ${newTag}`);
     if (floatingTag) {
         const majorVersion = semver.major(newVersion);
-        const floatingTagName = `${tagPrefix}${majorVersion}`;
-        await updateFloatingTag(octokit, owner, repo, floatingTagName, context.sha);
-        core.setOutput('floating-tag', floatingTagName);
-        core.info(`Updated floating tag ${floatingTagName} -> ${newTag}`);
+        if (majorVersion === 0) {
+            core.info('Skipping floating tag creation for v0.x.x versions');
+        }
+        else {
+            const floatingTagName = `${tagPrefix}${majorVersion}`;
+            await updateFloatingTag(octokit, owner, repo, floatingTagName, context.sha);
+            core.setOutput('floating-tag', floatingTagName);
+            core.info(`Updated floating tag ${floatingTagName} -> ${newTag}`);
+        }
     }
 }
 async function getLatestTag(octokit, owner, repo, tagPrefix) {
