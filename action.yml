@@ -1,0 +1,31 @@
+name: 'Tag It'
+description: 'Validates Conventional Commits on PRs and auto-generates semantic version tags on push to main'
+author: 'wozniakpl'
+
+branding:
+  icon: 'tag'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  tag-prefix:
+    description: 'Prefix for version tags (e.g., "v")'
+    required: false
+    default: 'v'
+  initial-version:
+    description: 'Initial version if no tags exist'
+    required: false
+    default: '0.0.0'
+
+outputs:
+  new-tag:
+    description: 'The new tag that was created (only on push events)'
+  bump-type:
+    description: 'The type of version bump (major, minor, patch, or none)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
