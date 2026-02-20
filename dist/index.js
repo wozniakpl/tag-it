@@ -32734,7 +32734,9 @@ async function handlePush(octokit, context, tagPrefix, initialVersion, floatingT
     const { owner, repo } = context.repo;
     const defaultBranch = context.payload.repository?.default_branch || 'main';
     const ref = context.ref;
-    if (ref !== `refs/heads/${defaultBranch}` && ref !== `refs/heads/main` && ref !== `refs/heads/master`) {
+    if (ref !== `refs/heads/${defaultBranch}` &&
+        ref !== `refs/heads/main` &&
+        ref !== `refs/heads/master`) {
         core.info(`Push is not to the default branch (${ref}). Skipping tag creation.`);
         core.setOutput('bump-type', 'none');
         return;
@@ -32902,7 +32904,7 @@ async function updateFloatingTag(octokit, owner, repo, tag, sha) {
         });
         core.info(`Updated existing floating tag ${tag}`);
     }
-    catch (error) {
+    catch (_error) {
         await octokit.rest.git.createRef({
             owner,
             repo,

@@ -2,7 +2,8 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import * as semver from 'semver';
 
-const CONVENTIONAL_COMMIT_REGEX = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+$/;
+const CONVENTIONAL_COMMIT_REGEX =
+  /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+$/;
 
 type BumpType = 'major' | 'minor' | 'patch' | 'none';
 
@@ -53,14 +54,14 @@ async function handlePullRequest(context: typeof github.context): Promise<void> 
   if (!CONVENTIONAL_COMMIT_REGEX.test(prTitle)) {
     core.setFailed(
       `PR title does not follow Conventional Commits format.\n\n` +
-      `Expected format: <type>[optional scope][!]: <description>\n\n` +
-      `Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert\n\n` +
-      `Examples:\n` +
-      `  - feat: add new feature\n` +
-      `  - fix(auth): resolve login issue\n` +
-      `  - feat!: breaking change in API\n` +
-      `  - chore(deps): update dependencies\n\n` +
-      `Your title: "${prTitle}"`
+        `Expected format: <type>[optional scope][!]: <description>\n\n` +
+        `Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert\n\n` +
+        `Examples:\n` +
+        `  - feat: add new feature\n` +
+        `  - fix(auth): resolve login issue\n` +
+        `  - feat!: breaking change in API\n` +
+        `  - chore(deps): update dependencies\n\n` +
+        `Your title: "${prTitle}"`
     );
     return;
   }
@@ -79,7 +80,11 @@ async function handlePush(
   const defaultBranch = context.payload.repository?.default_branch || 'main';
   const ref = context.ref;
 
-  if (ref !== `refs/heads/${defaultBranch}` && ref !== `refs/heads/main` && ref !== `refs/heads/master`) {
+  if (
+    ref !== `refs/heads/${defaultBranch}` &&
+    ref !== `refs/heads/main` &&
+    ref !== `refs/heads/master`
+  ) {
     core.info(`Push is not to the default branch (${ref}). Skipping tag creation.`);
     core.setOutput('bump-type', 'none');
     return;
@@ -108,12 +113,12 @@ async function handlePush(
     return;
   }
 
-  const currentVersion = latestTag 
-    ? latestTag.replace(new RegExp(`^${tagPrefix}`), '') 
+  const currentVersion = latestTag
+    ? latestTag.replace(new RegExp(`^${tagPrefix}`), '')
     : initialVersion;
-  
+
   const newVersion = semver.inc(currentVersion, bumpType);
-  
+
   if (!newVersion) {
     core.setFailed(`Failed to increment version from ${currentVersion}`);
     return;
@@ -299,7 +304,7 @@ async function updateFloatingTag(
       force: true,
     });
     core.info(`Updated existing floating tag ${tag}`);
-  } catch (error) {
+  } catch (_error) {
     await octokit.rest.git.createRef({
       owner,
       repo,

@@ -21,6 +21,10 @@ npm-debug.log*
 # Test coverage
 coverage/
 
+# Cache
+.eslintcache
+.cache/
+
 # Environment
 .env
 .env.local
