@@ -19,12 +19,18 @@ inputs:
     description: 'Initial version if no tags exist'
     required: false
     default: '0.0.0'
+  floating-tag:
+    description: 'Enable floating major version tag (e.g., v5 points to latest v5.x.x)'
+    required: false
+    default: 'true'
 
 outputs:
   new-tag:
     description: 'The new tag that was created (only on push events)'
   bump-type:
     description: 'The type of version bump (major, minor, patch, or none)'
+  floating-tag:
+    description: 'The floating major version tag that was updated (e.g., v5)'
 
 runs:
   using: 'node20'

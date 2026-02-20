@@ -32685,6 +32685,7 @@ async function run() {
         const token = core.getInput('github-token', { required: true });
         const tagPrefix = core.getInput('tag-prefix') || 'v';
         const initialVersion = core.getInput('initial-version') || '0.0.0';
+        const floatingTag = core.getInput('floating-tag') !== 'false';
         const octokit = github.getOctokit(token);
         const context = github.context;
         core.info(`Event: ${context.eventName}`);
@@ -32693,7 +32694,7 @@ async function run() {
             await handlePullRequest(context);
         }
         else if (context.eventName === 'push') {
-            await handlePush(octokit, context, tagPrefix, initialVersion);
+            await handlePush(octokit, context, tagPrefix, initialVersion, floatingTag);
         }
         else {
             core.warning(`Unsupported event: ${context.eventName}. Skipping.`);
@@ -32729,7 +32730,7 @@ async function handlePullRequest(context) {
     }
     core.info('PR title follows Conventional Commits format');
 }
-async function handlePush(octokit, context, tagPrefix, initialVersion) {
+async function handlePush(octokit, context, tagPrefix, initialVersion, floatingTag) {
     const { owner, repo } = context.repo;
     const defaultBranch = context.payload.repository?.default_branch || 'main';
     const ref = context.ref;
@@ -32769,6 +32770,13 @@ async function handlePush(octokit, context, tagPrefix, initialVersion) {
     core.setOutput('new-tag', newTag);
     core.setOutput('bump-type', bumpType);
     core.info(`Successfully created tag ${newTag}`);
+    if (floatingTag) {
+        const majorVersion = semver.major(newVersion);
+        const floatingTagName = `${tagPrefix}${majorVersion}`;
+        await updateFloatingTag(octokit, owner, repo, floatingTagName, context.sha);
+        core.setOutput('floating-tag', floatingTagName);
+        core.info(`Updated floating tag ${floatingTagName} -> ${newTag}`);
+    }
 }
 async function getLatestTag(octokit, owner, repo, tagPrefix) {
     try {
@@ -32877,6 +32885,27 @@ async function createTag(octokit, owner, repo, tag, sha) {
         ref: `refs/tags/${tag}`,
         sha,
     });
+}
+async function updateFloatingTag(octokit, owner, repo, tag, sha) {
+    try {
+        await octokit.rest.git.updateRef({
+            owner,
+            repo,
+            ref: `tags/${tag}`,
+            sha,
+            force: true,
+        });
+        core.info(`Updated existing floating tag ${tag}`);
+    }
+    catch (error) {
+        await octokit.rest.git.createRef({
+            owner,
+            repo,
+            ref: `refs/tags/${tag}`,
+            sha,
+        });
+        core.info(`Created new floating tag ${tag}`);
+    }
 }
 run();
 
