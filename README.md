@@ -6,7 +6,8 @@ The zero-config GitHub Action for automated semver. Enforces Conventional Commit
 
 - **PR Title Validation**: Ensures PR titles follow [Conventional Commits](https://www.conventionalcommits.org/) format
 - **Automatic Semantic Versioning**: Analyzes commits on push to main and creates appropriate version tags
-- **Floating Major Tags**: Automatically maintains major version tags (e.g., `v5` always points to latest `v5.x.x`)
+- **Floating Tags**: Automatically maintains floating tags (major by default, optionally minor too)
+- **GitHub Releases (Optional)**: Can automatically create/update a GitHub Release with generated release notes
 - **Zero Configuration**: Works out of the box with sensible defaults
 
 ## Usage
@@ -45,7 +46,8 @@ jobs:
 | `github-token` | GitHub token for API access | Yes | `${{ github.token }}` |
 | `tag-prefix` | Prefix for version tags | No | `v` |
 | `initial-version` | Initial version if no tags exist | No | `0.0.0` |
-| `floating-tag` | Enable floating major version tag | No | `true` |
+| `floating-tag` | Floating tags mode: `true` (major only), `minor` (major + minor), `false` (off) | No | `true` |
+| `create-release` | Create/update a GitHub Release with generated release notes | No | `false` |
 
 ## Outputs
 
@@ -54,6 +56,8 @@ jobs:
 | `new-tag` | The new tag that was created (only on push events) |
 | `bump-type` | The type of version bump (major, minor, patch, or none) |
 | `floating-tag` | The floating major version tag that was updated (e.g., `v5`) |
+| `floating-minor-tag` | The floating minor version tag that was updated (e.g., `v5.2`) |
+| `release-url` | The GitHub Release URL that was created/updated (only when `create-release` is enabled) |
 
 ## How It Works
 
@@ -87,7 +91,7 @@ The action:
 
 ### Floating Tags
 
-Floating tags allow users to reference a major version without specifying the exact minor/patch version. This is the recommended pattern for GitHub Actions.
+Floating tags allow users to reference a major (and optionally minor) version without specifying the exact patch version. This is the recommended pattern for GitHub Actions.
 
 For example, when `v5.2.0` is released:
 - A new tag `v5.2.0` is created
@@ -99,7 +103,16 @@ This allows consumers to use `@v5` in their workflows to always get the latest `
 - uses: wozniakpl/tag-it@v5  # Always uses latest v5.x.x
 ```
 
-Floating tags are **enabled by default**. To disable them:
+To also maintain a floating **minor** tag (e.g., `v5.2`), set:
+
+```yaml
+- uses: wozniakpl/tag-it@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    floating-tag: minor
+```
+
+Floating tags are **enabled by default** (major only). To disable them:
 
 ```yaml
 - uses: wozniakpl/tag-it@v1
@@ -134,12 +147,14 @@ jobs:
         uses: wozniakpl/tag-it@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          create-release: 'true'
       
       - name: Create Release
         if: steps.tag-it.outputs.new-tag != ''
         run: |
           echo "New tag created: ${{ steps.tag-it.outputs.new-tag }}"
           echo "Bump type: ${{ steps.tag-it.outputs.bump-type }}"
+          echo "Release URL: ${{ steps.tag-it.outputs.release-url }}"
 ```
 
 ## License
