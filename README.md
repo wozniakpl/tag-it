@@ -8,6 +8,7 @@ The zero-config GitHub Action for automated semver. Enforces Conventional Commit
 - **Automatic Semantic Versioning**: Analyzes commits on push to main and creates appropriate version tags
 - **Floating Tags**: Automatically maintains floating tags (major by default, optionally minor too)
 - **GitHub Releases (Optional)**: Can automatically create/update a GitHub Release with generated release notes
+- **Pre-release command (Optional)**: Run a custom command before tagging (e.g. bump version in `Cargo.toml`); if it changes files, a release commit is created and the tag points to it
 - **Zero Configuration**: Works out of the box with sensible defaults
 
 ## Usage
@@ -48,6 +49,7 @@ jobs:
 | `initial-version` | Initial version if no tags exist | No | `0.0.0` |
 | `floating-tag` | Floating tags mode: `true` (major only), `minor` (major + minor), `false` (off) | No | `true` |
 | `create-release` | Create/update a GitHub Release with generated release notes | No | `false` |
+| `pre-release-command` | Shell command to run before creating the tag (e.g. bump version in a file). If it produces file changes, they are committed and pushed, then the tag is created on that commit. Env: `NEW_VERSION`, `NEW_TAG`. | No | *(not set)* |
 
 ## Outputs
 
@@ -120,6 +122,31 @@ Floating tags are **enabled by default** (major only). To disable them:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     floating-tag: 'false'
 ```
+
+### Pre-release command
+
+To bump a version in your repo before the tag is created (e.g. in `Cargo.toml`, `pyproject.toml`, or `package.json`), set `pre-release-command`. The action runs it with `NEW_VERSION` and `NEW_TAG` in the environment. If the command changes any files, it commits and pushes them, then creates the tag on that new commit.
+
+Example: update version in a Rust project’s `Cargo.toml` with a small script:
+
+```yaml
+- uses: wozniakpl/tag-it@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    pre-release-command: |
+      sed -i "s/^version = .*/version = \"$NEW_VERSION\"/" Cargo.toml
+```
+
+Example: use a Node script that writes the new version into `package.json`:
+
+```yaml
+- uses: wozniakpl/tag-it@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    pre-release-command: 'node -e "const p=require(\"./package.json\"); p.version=process.env.NEW_VERSION; require(\"fs\").writeFileSync(\"package.json\", JSON.stringify(p,null,2));"'
+```
+
+If `pre-release-command` is not set (default), no command runs and the tag is created on the current commit.
 
 ## Example Workflow with Outputs
 
