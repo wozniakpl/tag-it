@@ -27,6 +27,10 @@ inputs:
     description: 'Create or update a GitHub Release for the new tag with generated release notes'
     required: false
     default: 'false'
+  pre-release-command:
+    description: 'Optional shell command to run before creating the tag (e.g. bump version in Cargo.toml). If it produces file changes, they are committed and pushed, then the tag is created on that commit. Env: NEW_VERSION, NEW_TAG. Default: not set (no extra commit).'
+    required: false
+    default: ''
 
 outputs:
   new-tag:
