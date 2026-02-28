@@ -32676,6 +32676,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const child_process_1 = __nccwpck_require__(5317);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const semver = __importStar(__nccwpck_require__(2088));
@@ -32706,6 +32707,7 @@ async function run() {
         const initialVersion = core.getInput('initial-version') || '0.0.0';
         const floatingTagMode = parseFloatingTagMode(core.getInput('floating-tag'));
         const createRelease = parseBooleanInput(core.getInput('create-release'), false);
+        const preReleaseCommand = (core.getInput('pre-release-command') || '').trim() || null;
         const octokit = github.getOctokit(token);
         const context = github.context;
         core.info(`Event: ${context.eventName}`);
@@ -32714,7 +32716,7 @@ async function run() {
             await handlePullRequest(context);
         }
         else if (context.eventName === 'push') {
-            await handlePush(octokit, context, tagPrefix, initialVersion, floatingTagMode, createRelease);
+            await handlePush(octokit, context, tagPrefix, initialVersion, floatingTagMode, createRelease, preReleaseCommand);
         }
         else {
             core.warning(`Unsupported event: ${context.eventName}. Skipping.`);
@@ -32750,7 +32752,7 @@ async function handlePullRequest(context) {
     }
     core.info('PR title follows Conventional Commits format');
 }
-async function handlePush(octokit, context, tagPrefix, initialVersion, floatingTagMode, createRelease) {
+async function handlePush(octokit, context, tagPrefix, initialVersion, floatingTagMode, createRelease, preReleaseCommand) {
     const { owner, repo } = context.repo;
     const defaultBranch = context.payload.repository?.default_branch || 'main';
     const ref = context.ref;
@@ -32786,7 +32788,8 @@ async function handlePush(octokit, context, tagPrefix, initialVersion, floatingT
     }
     const newTag = `${tagPrefix}${newVersion}`;
     core.info(`Creating new tag: ${newTag}`);
-    await createTag(octokit, owner, repo, newTag, context.sha);
+    const shaToTag = await runPreReleaseCommandIfSet(preReleaseCommand, newVersion, newTag, context);
+    await createTag(octokit, owner, repo, newTag, shaToTag);
     core.setOutput('new-tag', newTag);
     core.setOutput('bump-type', bumpType);
     core.info(`Successfully created tag ${newTag}`);
@@ -32971,6 +32974,52 @@ function determineBumpType(commits) {
         return 'patch';
     }
     return 'none';
+}
+async function runPreReleaseCommandIfSet(preReleaseCommand, newVersion, newTag, context) {
+    if (!preReleaseCommand) {
+        return context.sha;
+    }
+    const cwd = process.env.GITHUB_WORKSPACE || process.cwd();
+    core.info(`Running pre-release command: ${preReleaseCommand}`);
+    try {
+        (0, child_process_1.execSync)(preReleaseCommand, {
+            cwd,
+            stdio: 'inherit',
+            env: {
+                ...process.env,
+                NEW_VERSION: newVersion,
+                NEW_TAG: newTag,
+            },
+        });
+    }
+    catch (error) {
+        if (error instanceof Error) {
+            core.setFailed(`Pre-release command failed: ${error.message}`);
+        }
+        else {
+            core.setFailed('Pre-release command failed');
+        }
+        throw error;
+    }
+    const statusOutput = (0, child_process_1.execSync)('git status --porcelain', {
+        cwd,
+        encoding: 'utf-8',
+    }).trim();
+    if (!statusOutput) {
+        core.info('Pre-release command produced no file changes; tagging current commit.');
+        return context.sha;
+    }
+    core.info('Pre-release command produced changes; creating release commit.');
+    const actor = process.env.GITHUB_ACTOR || 'github-actions[bot]';
+    const email = actor === 'github-actions[bot]' ? '41898282+github-actions[bot]@users.noreply.github.com' : `${actor}@users.noreply.github.com`;
+    (0, child_process_1.execSync)(`git config user.name "${actor}"`, { cwd });
+    (0, child_process_1.execSync)(`git config user.email "${email}"`, { cwd });
+    (0, child_process_1.execSync)('git add -A', { cwd });
+    (0, child_process_1.execSync)(`git commit -m "chore: release ${newTag}"`, { cwd });
+    (0, child_process_1.execSync)('git push', { cwd });
+    const newSha = (0, child_process_1.execSync)('git rev-parse HEAD', { cwd, encoding: 'utf-8' }).trim();
+    core.info(`Created release commit ${newSha}`);
+    return newSha;
 }
 async function createTag(octokit, owner, repo, tag, sha) {
     await octokit.rest.git.createRef({
