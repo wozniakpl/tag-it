@@ -4,7 +4,7 @@
   "description": "GitHub Action for Conventional Commits validation and semantic versioning",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build": "ncc build src/index.ts -o dist --license licenses.txt",
     "lint": "eslint src/**/*.ts",
     "test": "jest",
     "prepare": "husky"
