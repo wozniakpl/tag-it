@@ -1,6 +1,6 @@
 {
   "name": "tag-it",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "GitHub Action for Conventional Commits validation and semantic versioning",
   "main": "dist/index.js",
   "scripts": {
