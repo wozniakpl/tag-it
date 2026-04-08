@@ -45,5 +45,5 @@ outputs:
     description: 'The GitHub Release URL that was created/updated (only when create-release is enabled)'
 
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'

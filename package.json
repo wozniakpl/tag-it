@@ -4,9 +4,10 @@
   "description": "GitHub Action for Conventional Commits validation and semantic versioning",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build": "ncc build src/index.ts -o dist --license licenses.txt",
     "lint": "eslint src/**/*.ts",
-    "test": "jest"
+    "test": "jest",
+    "prepare": "husky"
   },
   "keywords": [
     "github-action",
@@ -21,9 +22,10 @@
     "semver": "^7.5.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^24.0.0",
     "@types/semver": "^7.5.6",
     "@vercel/ncc": "^0.38.1",
+    "husky": "^9.1.7",
     "typescript": "^5.3.2"
   }
 }

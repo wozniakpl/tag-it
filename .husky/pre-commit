@@ -1,0 +1,4 @@
+#!/bin/sh
+npx tsc --noEmit
+npm run build
+git add dist/
