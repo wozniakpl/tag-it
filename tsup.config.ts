@@ -8,4 +8,5 @@ export default defineConfig({
   minify: true,
   clean: true,
   noExternal: [/.*/],
+  platform: 'node',
 })
