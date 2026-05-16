@@ -9,4 +9,7 @@ export default defineConfig({
   clean: true,
   noExternal: [/.*/],
   platform: 'node',
+  banner: {
+    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+  },
 })
