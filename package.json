@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --out-dir dist --no-splitting --minify",
+    "build": "tsup",
     "lint": "eslint src/**/*.ts",
     "test": "jest",
     "prepare": "husky"
